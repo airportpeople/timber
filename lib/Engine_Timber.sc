@@ -88,6 +88,7 @@ Engine_Timber : CroneEngine {
 
 			downSampleTo: 48000,
 			bitDepth: 24,
+      noiseLevel: 0,
 
 			filterFreq: 20000,
 			filterReso: 0,
@@ -306,12 +307,12 @@ Engine_Timber : CroneEngine {
 				arg out, sampleRate, freq, transposeRatio, detuneRatio = 1, pitchBendRatio = 1, pitchBendSampleRatio = 1, playMode = 0, gate = 0, killGate = 1, vel = 1, pressure = 0, pressureSample = 0, amp = 1,
 				lfos, lfo1Fade, lfo2Fade, freqModLfo1, freqModLfo2, freqModEnv, freqMultiplier,
 				ampAttack, ampDecay, ampSustain, ampRelease, modAttack, modDecay, modSustain, modRelease,
-				downSampleTo, bitDepth,
+				downSampleTo, bitDepth, noiseLevel,
 				filterFreq, filterReso, filterType, filterTracking, filterFreqModLfo1, filterFreqModLfo2, filterFreqModEnv, filterFreqModVel, filterFreqModPressure,
 				pan, panModLfo1, panModLfo2, panModEnv, ampModLfo1, ampModLfo2;
 
 				var i_nyquist = SampleRate.ir * 0.5, i_cFreq = 48.midicps, i_origFreq = 60.midicps, signal, freqRatio, freqModRatio, filterFreqRatio,
-				killEnvelope, ampEnvelope, modEnvelope, lfo1, lfo2, i_controlLag = 0.005;
+				killEnvelope, ampEnvelope, modEnvelope, lfo1, lfo2, i_controlLag = 0.005, noise;
 
 				// Lag inputs
 				detuneRatio = Lag.kr(detuneRatio * pitchBendRatio * pitchBendSampleRatio, i_controlLag);
@@ -351,6 +352,16 @@ Engine_Timber : CroneEngine {
 					]);
 				});
 				signal = Decimator.ar(signal, downSampleTo, bitDepth);
+
+				// Noise
+				noise = HPF.ar(in: Mix.new([PinkNoise.ar(0.5), Dust.ar(5,1)]),
+											 freq: 2000,
+											 mul: Amplitude.kr(signal,
+											 									 attackTime: 0.1,
+											 									 releaseTime: 0.5,
+																				 mul: noiseLevel));
+
+				signal = Mix.new([signal, noise]);
 
 				// 12dB LP/HP filter
 				filterFreqRatio = Select.kr((freq < i_cFreq), [
@@ -952,6 +963,7 @@ Engine_Timber : CroneEngine {
 
 				\downSampleTo, sample.downSampleTo,
 				\bitDepth, sample.bitDepth,
+        \noiseLevel, sample.noiseLevel,
 
 				\filterFreq, sample.filterFreq,
 				\filterReso, sample.filterReso,
@@ -1316,6 +1328,11 @@ Engine_Timber : CroneEngine {
 		this.addCommand(\bitDepth, "ii", {
 			arg msg;
 			this.setArgOnSample(msg[1], \bitDepth, msg[2]);
+		});
+
+    this.addCommand(\noiseLevel, "if", {
+			arg msg;
+			this.setArgOnSample(msg[1], \noiseLevel, msg[2]);
 		});
 
 		this.addCommand(\filterFreq, "if", {
